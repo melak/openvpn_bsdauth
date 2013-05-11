@@ -17,7 +17,7 @@ It is of no use to users of other systems.
 
 The online version of the manual page is [available](http://www.wormhole.hu/~ice/openvpn_bsdauth/openvpn_bsdauth.8.html).
 
-The origin home page is [here](http://www.wormhole.hu/~ice/openvpn/bsdauth/).
+The origin home page is [here](http://www.wormhole.hu/~ice/openvpn_bsdauth/).
 
 ## Downloads
 
