@@ -5,7 +5,7 @@ A small helper application that makes it possible to authenticate
 
 BSD Auth is an authentication system originally of
 [BSD/OS](http://en.wikipedia.org/wiki/BSD/OS) origins, similar
-[PAM}(http://en.wikipedia.org/wiki/Pluggable_Authentication_Modules)
+[PAM](http://en.wikipedia.org/wiki/Pluggable_Authentication_Modules)
 mechanism, these days only to be found in [OpenBSD](http://www.openbsd.org/).
 
 Essentially, it makes it possible for OpenVPN to authenticate users
