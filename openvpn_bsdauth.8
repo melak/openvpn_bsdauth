@@ -1,0 +1,84 @@
+.\" Copyright (c) 2007, 2009-2010 Tamas Tevesz <ice@extreme.hu>
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.Dd $Mdocdate: May 11 2013$
+.Dt OPENVPN_BSDAUTH 8
+.Os
+.Sh NAME
+.Nm openvpn_bsdauth
+.Nd Authenticate users for OpenVPN
+.Sh SYNOPSYS
+.Nm
+.Op Ar file
+.Sh DESCRIPTION
+.Nm
+is invoked by OpenVPN to authenticate a user by checking a username and a
+password against the BSD Authentication system. It supports both the
+.Em via-file
+and
+.Em via-env
+methods used by OpenVPN (see the section about the
+.Em auth-user-pass-verify
+directive in
+.Xr openvpn 8
+for the description of these methods).
+.Pp
+As an addition to checking the username and the password,
+.Nm
+also requires that the user be member of the group named
+.Sq _openvpnusers
+for the authentication to succeed.
+.Sh EXAMPLES
+Authenticate exchanging information with OpenVPN via environment variables:
+.Pp
+.Dl auth-user-pass-verify !!PREFIX!!/libexec/openvpn_bsdauth via-env
+.Pp
+Authenticate exchanging information with OpenVPN via a temporary file
+(see
+.Em CAVEATS
+below):
+.Pp
+.Dl auth-user-pass-verify !!PREFIX!!/libexec/openvpn_bsdauth via-file
+.Sh DIAGNOSTICS
+.Nm
+logs diagnostic and informational messages to the system log using the
+.Em LOG_AUTH
+facility.
+.Sh SEE ALSO
+.Xr openvpn 8
+.Sh AUTHORS
+Tamas Tevesz
+.Aq ice@extreme.hu
+.Sh CAVEATS
+If OpenVPN is run as the non-privileged
+.Sq _openvpn
+user (which is recommended) in conjunction with the
+.Em via-file
+method, the
+.Sq tmp-dir
+.Xr openvpn 8
+directive
+.Em must
+be set to point to a directory that is writeable
+.Em only
+by the
+.Sq _openvpn
+user.
+.Pp
+For OpenVPN versions 2.1 and up, the
+.Sq script-security
+directive must be set to (at least)
+.Sq 3
+in order for
+.Nm
+to receive the password from OpenVPN.

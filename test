@@ -1,0 +1,90 @@
+#!/bin/sh
+
+t="./openvpn_bsdauth"
+
+ok_username="okuser"
+ok_password="okpass"
+bad_username="baduser"
+bad_password="badpass"
+nonexistent_username="nouser"
+
+success=0
+failure=1
+
+test_via_env()
+{
+	username="$1"
+	password="$2"
+	exp=$3
+
+	env -i \
+		username="${username}" \
+		password="${password}" \
+		untrusted_ip="127.0.0.1" \
+		"${t}"
+
+	if [ $? -ne ${exp} ]
+	then
+		echo "via-env failed test username=[${username}] password=[${password}]"
+	fi
+}
+
+test_via_file()
+{
+	username="$1"
+	password="$2"
+	exp=$3
+
+	passfile="$( mktemp /tmp/${0##*/}.XXXXXX )"
+
+	printf '%s\r\n' "${username}" > "${passfile}"
+	printf '%s\r\n' "${password}" >> "${passfile}"
+
+	env -i \
+		untrusted_ip="127.0.0.1" \
+		"${t}" "${passfile}"
+
+	if [ $? -ne ${exp} ]
+	then
+		echo "via-file failed test username=[${username}] password=[${password}]"
+	fi
+
+	rm -f "${passfile}"
+}
+
+test()
+{
+	if [ ${3} -eq ${failure} ]
+	then
+		logger -p auth.info -t openvpn_bsdauth-TEST "Expect two FAILUREs"
+	elif [ ${3} -eq ${success} ]
+	then
+		logger -p auth.info -t openvpn_bsdauth-TEST "Expect two SUCCESSes"
+	fi
+
+	test_via_file "$@"
+	test_via_env "$@"
+}
+
+logger -p auth.info -t openvpn_bsdauth-TEST "started testing"
+echo "started testing, watch authlog"
+
+test "" "" ${failure}
+test "" "${ok_password}" ${failure}
+test "" "${bad_password}" ${failure}
+
+test "${ok_username}" "" ${failure}
+test "${ok_username}" "${bad_password}" ${failure}
+test "${ok_username}" "${ok_password}" ${success}
+
+test "${bad_username}" "" ${failure}
+test "${bad_username}" "${bad_password}" ${failure}
+test "${bad_username}" "${ok_password}" ${failure}
+
+test "${nonexistent_username}" "" ${failure}
+test "${nonexistent_username}" "${bad_password}" ${failure}
+test "${nonexistent_username}" "${ok_password}" ${failure}
+
+echo "finished testing"
+logger -p auth.info -t openvpn_bsdauth-TEST "tests finished"
+
