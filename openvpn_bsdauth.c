@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009-2010 Tamas Tevesz <ice@extreme.hu>
+ * Copyright (c) 2007, 2009-2013 Tamas Tevesz <ice@extreme.hu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
 #include <sys/types.h>
 
 #include <bsd_auth.h>
-#include <err.h>
+#include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdarg.h>
@@ -34,86 +34,129 @@
 #define	VPN_GROUP			"_openvpnusers"
 #endif
 
-#define	OPENVPN_AUTH_OK			0
-#define	OPENVPN_AUTH_FAIL		1
-#define	OPENVPN_USER_PASS_MAXLEN	128
+#define OPENVPN_AUTH_SUCC		0
+#define OPENVPN_AUTH_FAIL		1
+#define OPENVPN_USERPASS_LEN		128
 
 extern	char	*__progname;
-static	int	 is_ingroup(char *);
-static	void	 logx(int, int, const char *, ...)
-		    __attribute__((__noreturn__, format(printf, 3, 4)));
-static	char	 username[OPENVPN_USER_PASS_MAXLEN], password[OPENVPN_USER_PASS_MAXLEN];
+static	int	 is_ingroup( const char * );
+static	int	 check_bsdauth( const char *username, const char *password );
 
 int main(int argc, char **argv) {
 
-	openlog(__progname, LOG_PID|LOG_NDELAY, LOG_AUTH);
+	char username[ OPENVPN_USERPASS_LEN ], password[ OPENVPN_USERPASS_LEN ];
+	int res;
 
-	if( getcreds( argc, argv, username, password, OPENVPN_USER_PASS_MAXLEN ) < 0 ) {
-		logx(OPENVPN_AUTH_FAIL, LOG_ERR,
-		    "Unable to get credentials from OpenVPN");
+	res = OPENVPN_AUTH_FAIL;
+
+	openlog( __progname, LOG_PID|LOG_NDELAY, LOG_AUTH );
+
+	if( getcreds( argc, argv, username, password, OPENVPN_USERPASS_LEN ) < 0 ) {
+		syslog( LOG_ERR, "Unable to get supplied credentials" );
+		goto out;
 	}
 
-	if (!is_ingroup(username)) {
-		logx(OPENVPN_AUTH_FAIL, LOG_ERR,
-		    "User %s is not a member of " VPN_GROUP , username);
+	if( check_bsdauth( username, password ) == 1 ) {
+		syslog( LOG_INFO, "Accepted password for %s from %s",
+			username, peer_address() ? peer_address() : "UNKNOWN" );
+		res = OPENVPN_AUTH_SUCC;
+	} else {
+		syslog( LOG_INFO, "Bad password for %s from %s,",
+			username, peer_address() ? peer_address() : "UNKNOWN" );
 	}
 
-	if(auth_userokay(username, NULL, NULL, password) != 0)  {
-		logx(OPENVPN_AUTH_OK, LOG_INFO,
-		    "Accepted password for %s from %s", username,
-		    peer_address() ? peer_address() : "UNKNOWN");
+out:
+	memset( username, 0, OPENVPN_USERPASS_LEN );
+	memset( password, 0, OPENVPN_USERPASS_LEN );
+
+	closelog();
+	return res;
+}
+
+static int check_bsdauth( const char *username, const char *password )
+{
+	int res;
+	char *u, *p;
+
+	res = 0;
+
+	u = strdup( username );
+	p = strdup( password );
+
+	if( u == NULL ||
+	    p == NULL ) {
+		syslog( LOG_ERR, "Error: strdup: %s", strerror( errno ) );
+		goto out;
 	}
 
-	logx(OPENVPN_AUTH_FAIL, LOG_ERR, "Bad password for %s from %s", username,
-	    peer_address() ? peer_address() : "UNKNOWN");
+	if( !is_ingroup( username ) ) {
+		goto out;
+	}
 
-	/* NOTREACHED */
-	return OPENVPN_AUTH_FAIL;
+	if( auth_userokay( u, NULL, NULL, p ) != 0 )  {
+		res = 1;
+	}
+
+	syslog( LOG_INFO, "BSD Auth %sed %s", res == 1 ? "accept" : "reject", username );
+
+out:
+	if( u ) {
+		memset( u, 0, strlen( u ) );
+		free( u );
+	}
+	if( p ) {
+		memset( p, 0, strlen( p ) );
+		free( p );
+	}
+
+	return res;
 }
 
 /* butchered from src/usr.bin/id/id.c */
-static int is_ingroup(char *user) {
+static int is_ingroup( const char *username ) {
 
-	gid_t groups[NGROUPS+1], vpngroup_gid;
+	gid_t groups[ NGROUPS + 1 ], vpngroup_gid;
 	struct group *gr;
 	struct passwd *pw;
 	int ngroups, i;
+	int res;
 
-	gr = getgrnam(VPN_GROUP);
-	if (gr == NULL)
-		logx(OPENVPN_AUTH_FAIL, LOG_ERR,
-		    "Can not find group %s in the system group database", VPN_GROUP);
+	res = 0;
+
+	gr = getgrnam( VPN_GROUP );
+	if( gr == NULL ) {
+		syslog( LOG_ERR, "Can not find group " VPN_GROUP 
+				 " in the system group database" );
+		goto out;
+	}
 
 	vpngroup_gid = gr->gr_gid;
 
-	pw = getpwnam(user);
-	if (pw == NULL)
-		logx(OPENVPN_AUTH_FAIL, LOG_ERR, "Bad user %s", user);
+	pw = getpwnam( username );
+	if( pw == NULL ) {
+		syslog( LOG_ERR, "Bad user %s", username );
+		goto out;
+	}
 
 	ngroups = NGROUPS + 1;
-	if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups) == -1)
-		logx(OPENVPN_AUTH_FAIL, LOG_ERR,
-		    "System group database is corrupt "
-		    "(user is in more than %d groups)", NGROUPS);
+	if( getgrouplist( pw->pw_name, pw->pw_gid, groups, &ngroups ) == -1 ) {
+		syslog( LOG_ERR, "System group database is corrupt "
+				 "(user is in more than %d groups)", NGROUPS );
+		goto out;
+	}
 
-	for (i = 0; i < ngroups; i++)
-		if (vpngroup_gid == groups[i])
-			return 1;
+	for (i = 0; i < ngroups; i++) {
+		if( vpngroup_gid == groups[i] ) {
+			res = 1;
+			goto out;
+		}
+	}
 
-	return 0;
+out:
+	if( res == 0 ) {
+		syslog( LOG_ERR, "User %s is not a member of " VPN_GROUP , username );
+	}
+
+	return res;
 }
 
-static void logx(int exitval, int prio, const char *fmt, ...) {
-
-	va_list va;
-
-	va_start(va, fmt);
-	vsyslog(prio, fmt, va);
-	closelog();
-	va_end(va);
-
-	memset(username, 0, OPENVPN_USER_PASS_MAXLEN);
-	memset(password, 0, OPENVPN_USER_PASS_MAXLEN);
-
-	exit(exitval);
-}
