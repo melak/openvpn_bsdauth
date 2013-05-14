@@ -17,11 +17,14 @@ test_via_env()
 	password="$2"
 	exp=$3
 
-	env -i \
-		username="${username}" \
-		password="${password}" \
-		untrusted_ip="127.0.0.1" \
+	for ipparam in "" untrusted_ip="127.0.0.1"
+	do
+		env -i \
+			username="${username}" \
+			password="${password}" \
+			${ipparam} \
 		"${t}"
+	done
 
 	if [ $? -ne ${exp} ]
 	then
@@ -40,9 +43,12 @@ test_via_file()
 	printf '%s\r\n' "${username}" > "${passfile}"
 	printf '%s\r\n' "${password}" >> "${passfile}"
 
-	env -i \
-		untrusted_ip="127.0.0.1" \
-		"${t}" "${passfile}"
+	for ipparam in "" untrusted_ip="127.0.0.1"
+	do
+		env -i \
+			${ipparam} \
+			"${t}" "${passfile}"
+	done
 
 	if [ $? -ne ${exp} ]
 	then
@@ -56,15 +62,23 @@ test()
 {
 	if [ ${3} -eq ${failure} ]
 	then
-		logger -p auth.info -t openvpn_bsdauth-TEST "Expect two FAILUREs"
+		logger -p auth.info -t openvpn_bsdauth-TEST "Expect four FAILUREs"
 	elif [ ${3} -eq ${success} ]
 	then
-		logger -p auth.info -t openvpn_bsdauth-TEST "Expect two SUCCESSes"
+		logger -p auth.info -t openvpn_bsdauth-TEST "Expect four SUCCESSes"
 	fi
 
+	logger -p auth.info -t openvpn_bsdauth-TEST "testing username=[${1}] password=[${2}] via-file"
 	test_via_file "$@"
+	logger -p auth.info -t openvpn_bsdauth-TEST "testing username=[${1}] password=[${2}] via-env"
 	test_via_env "$@"
 }
+
+if [ ! -x ${t} ]
+then
+	echo "test subject ${t} is awol"
+	exit
+fi
 
 logger -p auth.info -t openvpn_bsdauth-TEST "started testing"
 echo "started testing, watch authlog"
