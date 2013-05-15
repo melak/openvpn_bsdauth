@@ -17,7 +17,7 @@ CFLAGS+=	-Wall -Werror
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wformat=2 -Wextra -W
 
-.if defined(DEBUG)
+.if defined(BUILD_DEBUG)
 CFLAGS		+= -DDEBUG
 .endif
 

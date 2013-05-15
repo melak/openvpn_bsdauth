@@ -52,7 +52,9 @@ int main(int argc, char **argv) {
 	openlog( __progname, LOG_PID|LOG_NDELAY, LOG_AUTH );
 
 	if( getcreds( argc, argv, username, password, OPENVPN_USERPASS_LEN ) < 0 ) {
+#ifdef DEBUG
 		syslog( LOG_ERR, "Unable to get supplied credentials" );
+#endif
 		goto out;
 	}
 
@@ -97,7 +99,9 @@ static int check_bsdauth( const char *username, const char *password )
 		res = 1;
 	}
 
+#ifdef DEBUG
 	syslog( LOG_INFO, "BSD Auth %sed %s", res == 1 ? "accept" : "reject", username );
+#endif
 
 out:
 	if( u ) {
@@ -125,8 +129,10 @@ static int is_ingroup( const char *username ) {
 
 	gr = getgrnam( VPN_GROUP );
 	if( gr == NULL ) {
+#ifdef DEBUG
 		syslog( LOG_ERR, "Can not find group " VPN_GROUP 
 				 " in the system group database" );
+#endif
 		goto out;
 	}
 
@@ -134,14 +140,18 @@ static int is_ingroup( const char *username ) {
 
 	pw = getpwnam( username );
 	if( pw == NULL ) {
+#ifdef DEBUG
 		syslog( LOG_ERR, "Bad user %s", username );
+#endif
 		goto out;
 	}
 
 	ngroups = NGROUPS + 1;
 	if( getgrouplist( pw->pw_name, pw->pw_gid, groups, &ngroups ) == -1 ) {
+#ifdef DEBUG
 		syslog( LOG_ERR, "System group database is corrupt "
 				 "(user is in more than %d groups)", NGROUPS );
+#endif
 		goto out;
 	}
 
@@ -154,7 +164,9 @@ static int is_ingroup( const char *username ) {
 
 out:
 	if( res == 0 ) {
+#ifdef DEBUG
 		syslog( LOG_ERR, "User %s is not a member of " VPN_GROUP , username );
+#endif
 	}
 
 	return res;
