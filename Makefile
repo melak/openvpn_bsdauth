@@ -17,6 +17,10 @@ CFLAGS+=	-Wall -Werror
 CFLAGS+=	-Wshadow -Wpointer-arith -Wcast-qual
 CFLAGS+=	-Wsign-compare -Wformat=2 -Wextra -W
 
+.if defined(DEBUG)
+CFLAGS		+= -DDEBUG
+.endif
+
 .if ${CC} != "g++" && ${CC} != "eg++"
 CFLAGS+=	-Wstrict-prototypes -Wmissing-prototypes
 .endif
